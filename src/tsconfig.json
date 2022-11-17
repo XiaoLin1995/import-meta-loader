@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "esnext",
+    "moduleResolution": "node",
+    "strict": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "allowSyntheticDefaultImports": true
+  },
+  "include": ["./**/*"]
+}

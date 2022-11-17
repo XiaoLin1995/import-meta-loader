@@ -1,0 +1,43 @@
+{
+  "name": "import-meta-loader",
+  "version": "1.0.6",
+  "description": "The plugin allows you to use vite's `import.meta` syntax with webpack",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsup"
+  },
+  "keywords": [
+    "webpack",
+    "loader",
+    "require",
+    "import-meta-loader",
+    "vite"
+  ],
+  "author": "Xiaolin Zhu",
+  "bugs": {
+    "email": "290353548@qq.com"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@babel/generator": "^7.18.12",
+    "@babel/parser": "^7.18.11",
+    "@babel/traverse": "^7.18.11",
+    "@babel/types": "^7.18.10",
+    "@types/babel__generator": "^7.6.4",
+    "@types/babel__traverse": "^7.18.0",
+    "@typescript-eslint/eslint-plugin": "^5.35.1",
+    "@typescript-eslint/parser": "^5.35.1",
+    "dotenv": "^16.0.1",
+    "eslint": "^8.23.0",
+    "eslint-config-standard": "^17.0.0",
+    "eslint-plugin-import": "^2.26.0",
+    "eslint-plugin-n": "^15.2.5",
+    "eslint-plugin-promise": "^6.0.1",
+    "loader-utils": "^2.0.2",
+    "log4js": "^6.6.1",
+    "tsup": "^6.2.2",
+    "typescript": "^4.7.4",
+    "webpack": "^5.74.0"
+  }
+}
