@@ -6,7 +6,8 @@ import * as t from '@babel/types'
 import {
   isImportMeta,
   transformPathToRegexp,
-  getImportMetaData
+  getImportMetaData,
+  checkIsExclude
 } from './utils'
 import {
   ImportMetaArray,
@@ -28,10 +29,10 @@ export default function transformCode (source: string, { env }: LoaderOptions, c
   traverse(ast, {
     enter (path) {
       if (isImportMeta(path, 'url')) {
-        const { path: parentPath, url, type } = getImportMetaData(path, 'url')
+        const { path: parentPath, url, type } = getImportMetaData(path, 'url', config)
         importMetaData.push({ path: parentPath, url, type })
       } else if (isImportMeta(path, 'glob')) {
-        const { path: parentPath, url, type } = getImportMetaData(path, 'glob')
+        const { path: parentPath, url, type } = getImportMetaData(path, 'glob', config)
         const parentNode = parentPath.node
         const parentArgumentsTwo = parentNode.arguments[1]
 
@@ -52,10 +53,10 @@ export default function transformCode (source: string, { env }: LoaderOptions, c
           path: parentPath,
           url,
           type
-        } = getImportMetaData(path, 'globEager')
+        } = getImportMetaData(path, 'globEager', config)
         importMetaData.push({ path: parentPath, url, type })
       } else if (isImportMeta(path, 'env')) {
-        const { path: parentPath, type } = getImportMetaData(path, 'env')
+        const { path: parentPath, type } = getImportMetaData(path, 'env', config)
         const envValue = parentPath.parent?.property?.name || ''
         importMetaData.push({ path: parentPath, type, value: envValue })
       }
@@ -98,9 +99,123 @@ export default function transformCode (source: string, { env }: LoaderOptions, c
       }
       value ? path.parentPath.replaceWith(newPath) : path.replaceWith(newPath)
     } else if (['glob', 'globEager'].includes(type)) {
-      const globBody: any[] = [];
+      const globBody: any[] = []
 
-      (url as string[]).forEach((val: string, idx: number) => {
+      const includeUrl: string[] = []
+      const excludeUrl: string[] = [];
+
+      (url as string[]).forEach(val => {
+        if (checkIsExclude(val)) {
+          excludeUrl.push(val)
+        } else {
+          includeUrl.push(val)
+        }
+      })
+
+      globBody.push(
+        t.variableDeclaration('const', [
+          t.variableDeclarator(
+            t.identifier('excludeKeys'),
+            t.arrayExpression([])
+          )
+        ]),
+
+        t.variableDeclaration('const', [
+          t.variableDeclarator(
+            t.identifier('includeKeys'),
+            t.arrayExpression([])
+          )
+        ])
+      )
+
+      excludeUrl.forEach((val: string) => {
+        const { directory, useSubdirectories, regexp } = transformPathToRegexp(
+          val,
+          config
+        )
+
+        globBody.push(
+          t.expressionStatement(
+            t.callExpression(
+              t.functionExpression(
+                null,
+                [],
+                t.blockStatement([
+                  t.variableDeclaration('const', [
+                    t.variableDeclarator(
+                      t.identifier('files'),
+                      t.callExpression(
+                        t.memberExpression(
+                          t.identifier('require'),
+                          t.identifier('context')
+                        ),
+                        [
+                          t.stringLiteral(directory),
+                          t.booleanLiteral(useSubdirectories),
+                          t.regExpLiteral(regexp),
+                          t.stringLiteral('lazy')
+                        ]
+                      )
+                    )
+                  ]),
+                  t.expressionStatement(
+                    t.callExpression(
+                      t.memberExpression(
+                        t.callExpression(
+                          t.memberExpression(
+                            t.identifier('files'),
+                            t.identifier('keys')
+                          ),
+                          []
+                        ),
+                        t.identifier('forEach')
+                      ),
+                      [
+                        t.functionExpression(
+                          null,
+                          [t.identifier('key')],
+                          t.blockStatement([
+                            t.variableDeclaration('const', [
+                              t.variableDeclarator(
+                                t.identifier('realKey'),
+                                t.binaryExpression(
+                                  '+',
+                                  t.stringLiteral(directory),
+                                  t.callExpression(
+                                    t.memberExpression(
+                                      t.identifier('key'),
+                                      t.identifier('replace')
+                                    ),
+                                    [t.stringLiteral('./'), t.stringLiteral('')]
+                                  )
+                                )
+                              )
+                            ]),
+                            t.expressionStatement(
+                              t.callExpression(
+                                t.memberExpression(
+                                  t.identifier('excludeKeys'),
+                                  t.identifier('push')
+                                ),
+                                [
+                                  t.identifier('realKey')
+                                ]
+                              )
+                            )
+                          ])
+                        )
+                      ]
+                    )
+                  )
+                ])
+              ),
+              []
+            )
+          )
+        )
+      })
+
+      includeUrl.forEach((val: string, idx: number) => {
         const { directory, useSubdirectories, regexp } = transformPathToRegexp(
           val,
           config
@@ -277,34 +392,74 @@ export default function transformCode (source: string, { env }: LoaderOptions, c
                               null,
                               [t.identifier('key')],
                               t.blockStatement([
-                                // t.variableDeclaration("let", [
-                                //   t.variableDeclarator(
-                                //     t.identifier("value"),
-                                //     t.callExpression(t.identifier("files"), [
-                                //       t.identifier("key"),
-                                //     ])
-                                //   ),
-                                // ]),
-                                t.expressionStatement(
-                                  t.assignmentExpression(
-                                    '=',
-                                    t.memberExpression(
-                                      t.identifier('modules'),
-                                      t.binaryExpression(
-                                        '+',
-                                        t.stringLiteral(directory),
-                                        t.callExpression(
-                                          t.memberExpression(
-                                            t.identifier('key'),
-                                            t.identifier('replace')
-                                          ),
-                                          [t.stringLiteral('./'), t.stringLiteral('')]
-                                        )
-                                      ),
-                                      true
-                                    ),
-                                    modulesKey
+                                t.variableDeclaration('const', [
+                                  t.variableDeclarator(
+                                    t.identifier('realKey'),
+                                    t.binaryExpression(
+                                      '+',
+                                      t.stringLiteral(directory),
+                                      t.callExpression(
+                                        t.memberExpression(
+                                          t.identifier('key'),
+                                          t.identifier('replace')
+                                        ),
+                                        [t.stringLiteral('./'), t.stringLiteral('')]
+                                      )
+                                    )
                                   )
+                                ]),
+                                t.ifStatement(
+                                  t.logicalExpression(
+                                    '&&',
+                                    t.unaryExpression(
+                                      '!',
+                                      t.callExpression(
+                                        t.memberExpression(
+                                          t.identifier('excludeKeys'),
+                                          t.identifier('includes')
+                                        ),
+                                        [
+                                          t.identifier('realKey')
+                                        ]
+                                      )
+                                    ),
+                                    t.unaryExpression(
+                                      '!',
+                                      t.callExpression(
+                                        t.memberExpression(
+                                          t.identifier('includeKeys'),
+                                          t.identifier('includes')
+                                        ),
+                                        [
+                                          t.identifier('realKey')
+                                        ]
+                                      )
+                                    )
+                                  ),
+                                  t.blockStatement([
+                                    t.expressionStatement(
+                                      t.callExpression(
+                                        t.memberExpression(
+                                          t.identifier('includeKeys'),
+                                          t.identifier('push')
+                                        ),
+                                        [
+                                          t.identifier('realKey')
+                                        ]
+                                      )
+                                    ),
+                                    t.expressionStatement(
+                                      t.assignmentExpression(
+                                        '=',
+                                        t.memberExpression(
+                                          t.identifier('modules'),
+                                          t.identifier('realKey'),
+                                          true
+                                        ),
+                                        modulesKey
+                                      )
+                                    )
+                                  ])
                                 )
                               ])
                             )
@@ -322,17 +477,19 @@ export default function transformCode (source: string, { env }: LoaderOptions, c
         )
       })
 
-      globBody.push(t.returnStatement(
-        t.callExpression(
-          t.memberExpression(
-            t.identifier('Object'),
-            t.identifier('assign')
-          ),
-          (url as string[]).map((val, idx) => {
-            return t.identifier('_url_' + idx)
-          })
+      globBody.push(
+        t.returnStatement(
+          t.callExpression(
+            t.memberExpression(
+              t.identifier('Object'),
+              t.identifier('assign')
+            ),
+            includeUrl.map((val, idx) => {
+              return t.identifier('_url_' + idx)
+            })
+          )
         )
-      ))
+      )
 
       path.replaceWith(
         t.callExpression(

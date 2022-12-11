@@ -19,6 +19,14 @@ export function getFileLanguage (path: string, query: string) {
   return getFileType(path)
 }
 
+export function checkIsExclude (path: string) {
+  return path.substr(0, 1) === '!'
+}
+
+export function checkIsRelative (path: string) {
+  return /^[.]{1,2}\//.test(path)
+}
+
 export function isImportMeta (path: any, prop: string) {
   if (!path.isIdentifier({ name: 'import' })) return false
   const parentNode = path?.parent
@@ -46,29 +54,11 @@ function transformPathSlash (path: string) {
 }
 
 export function transformPathToRegexp (path: string, { rootPath, resourcePath, alias, isVite2 }: PathToRegexpOptions) {
-  const resourceDir = _path.join(resourcePath, '../')
-  const aliasPath = (Object.entries(alias) as [string, string][]).find(([key]) => {
-    return path.substr(0, key.length + 1) === key + '/'
-  })
-
-  if (aliasPath) {
-    const [key, value] = aliasPath
-    const realPath = _path.join(value, path.replace(key + '/', ''))
-    const relative = _path.relative(resourceDir, realPath)
-    if (relative) {
-      path = transformPathSlash(relative)
-    } else {
-      const matchRes = path.match(/[^/]+$/)
-      if (matchRes) path = './' + matchRes[0]
-    }
-    if (!isVite2) {
-      path = transformPathSlash(_path.join(resourceDir, path).replace(rootPath, ''))
-    }
+  if (checkIsExclude(path)) {
+    path = path.substr(1)
   }
+  path = transformPath(path, { rootPath, resourcePath, alias, isVite2 })
 
-  if (!isVite2 && path.substr(0, 1) !== '/') {
-    path = transformPathSlash(_path.relative(resourceDir, _path.join(resourceDir, path)))
-  }
   const starReg = /\/[*]{1,}\//
   const useSubdirectories = starReg.test(path)
   const idx =
@@ -135,7 +125,42 @@ export function isNewUrlHref (path: any) {
   return false
 }
 
-export function getImportMetaData (path: any, type: string) {
+export function transformPath (path: string, { rootPath, resourcePath, alias, isVite2 }: PathToRegexpOptions) {
+  const resourceDir = _path.join(resourcePath, '../')
+
+  const isExclude = checkIsExclude(path)
+
+  if (isExclude) {
+    path = path.substr(1)
+  }
+
+  const aliasPath = (Object.entries(alias) as [string, string][]).find(([key]) => {
+    return path.substr(0, key.length + 1) === key + '/'
+  })
+
+  if (aliasPath) {
+    const [key, value] = aliasPath
+    const realPath = _path.join(value, path.replace(key + '/', ''))
+    const relative = _path.relative(resourceDir, realPath)
+    if (relative) {
+      path = transformPathSlash(relative)
+    } else {
+      const matchRes = path.match(/[^/]+$/)
+      if (matchRes) path = './' + matchRes[0]
+    }
+    if (!isVite2) {
+      path = transformPathSlash(_path.join(resourceDir, path).replace(rootPath, ''))
+    }
+  }
+
+  if (!isVite2 && path.substr(0, 1) !== '/') {
+    path = transformPathSlash(_path.relative(resourceDir, _path.join(resourceDir, path)))
+  }
+
+  return isExclude ? '!' + path : path
+}
+
+export function getImportMetaData (path: any, type: string, { rootPath, resourcePath, alias, isVite2 }: PathToRegexpOptions) {
   if (type === 'url') {
     return {
       type,
@@ -153,15 +178,38 @@ export function getImportMetaData (path: any, type: string) {
   const targetNode = path.parentPath.parentPath.parent
   const urlArg = targetNode.arguments[0]
   const isArray = t.isArrayExpression(urlArg)
-  const url = []
+  const url: string[] = []
 
   if (isArray) {
     (urlArg.elements as t.StringLiteral[]).forEach(item => {
-      url.push(item.value)
+      url.push(transformPath(item.value, { rootPath, resourcePath, alias, isVite2 }))
     })
   } else {
-    url.push(urlArg.value)
+    url.push(transformPath(urlArg.value, { rootPath, resourcePath, alias, isVite2 }))
   }
+
+  const onlyRelative = ((): boolean => {
+    return url.every(val => {
+      if (checkIsExclude(val)) return true
+      return checkIsRelative(val)
+    })
+  })()
+
+  const resourceDir = _path.join(resourcePath, '../')
+
+  url.forEach((val, idx) => {
+    const isExclude = checkIsExclude(val)
+    if (isExclude) val = val.substr(1)
+    const isRelative = checkIsRelative(val)
+
+    if (onlyRelative && isExclude && !isRelative) {
+      const result = _path.relative(resourceDir, _path.join(rootPath, val))
+      url[idx] = '!' + result
+    } else if (!onlyRelative && isRelative) {
+      const result = _path.join(resourceDir, val).replace(rootPath, '').replaceAll('\\', '/')
+      url[idx] = isExclude ? '!' + result : result
+    }
+  })
 
   return {
     type,
