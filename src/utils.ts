@@ -45,7 +45,7 @@ function transformPathSlash (path: string) {
   return /^([.]{1,2}\/|[/])/.test(str) ? str : './' + str
 }
 
-export function transformPathToRegexp (path: any, { rootPath, resourcePath, alias, isVite2 }: PathToRegexpOptions) {
+export function transformPathToRegexp (path: string, { rootPath, resourcePath, alias, isVite2 }: PathToRegexpOptions) {
   const resourceDir = _path.join(resourcePath, '../')
   const aliasPath = (Object.entries(alias) as [string, string][]).find(([key]) => {
     return path.substr(0, key.length + 1) === key + '/'
@@ -149,9 +149,23 @@ export function getImportMetaData (path: any, type: string) {
       path: path.parentPath.parentPath
     }
   }
+
+  const targetNode = path.parentPath.parentPath.parent
+  const urlArg = targetNode.arguments[0]
+  const isArray = t.isArrayExpression(urlArg)
+  const url = []
+
+  if (isArray) {
+    (urlArg.elements as t.StringLiteral[]).forEach(item => {
+      url.push(item.value)
+    })
+  } else {
+    url.push(urlArg.value)
+  }
+
   return {
     type,
-    url: path.parentPath.parentPath.parent.arguments[0].value,
+    url,
     path: path.parentPath.parentPath.parentPath
   }
 }

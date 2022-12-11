@@ -98,214 +98,248 @@ export default function transformCode (source: string, { env }: LoaderOptions, c
       }
       value ? path.parentPath.replaceWith(newPath) : path.replaceWith(newPath)
     } else if (['glob', 'globEager'].includes(type)) {
-      const { directory, useSubdirectories, regexp } = transformPathToRegexp(
-        url,
-        config
-      )
+      const globBody: any[] = [];
 
-      let mode: string
-      let modulesKey: t.FunctionExpression | t.CallExpression
-      if (type === 'glob') {
-        mode = 'lazy'
-        modulesKey = t.functionExpression(
-          null,
-          [],
-          t.blockStatement([
-            t.returnStatement(
-              t.callExpression(
-                t.memberExpression(
-                  t.callExpression(t.identifier('files'), [
-                    t.identifier('key')
-                  ]),
-                  t.identifier('then')
-                ),
-                [
-                  t.functionExpression(
-                    null,
-                    [t.identifier('value')],
-                    t.blockStatement([
-                      t.returnStatement(
-                        t.newExpression(t.identifier('Promise'), [
-                          t.functionExpression(
-                            null,
-                            [t.identifier('resolve')],
-                            t.blockStatement([
-                              t.ifStatement(
-                                t.binaryExpression(
-                                  '===',
-                                  t.callExpression(
-                                    t.memberExpression(
-                                      t.memberExpression(
-                                        t.memberExpression(
-                                          t.identifier('Object'),
-                                          t.identifier('prototype')
-                                        ),
-                                        t.identifier('toString')
-                                      ),
-                                      t.identifier('call')
-                                    ),
-                                    [t.identifier('value')]
-                                  ),
-                                  t.stringLiteral('[object Module]')
-                                ),
-                                t.blockStatement([
-                                  t.returnStatement(
-                                    t.callExpression(t.identifier('resolve'), [
-                                      t.identifier('value')
-                                    ])
-                                  )
-                                ])
-                              ),
-                              t.expressionStatement(
-                                t.callExpression(t.identifier('resolve'), [
-                                  t.objectExpression([
-                                    t.objectProperty(
-                                      t.identifier('default'),
-                                      t.identifier('value')
-                                    )
-                                  ])
-                                ])
-                              )
-                            ])
-                          )
-                        ])
-                      )
-                    ])
-                  )
-                ]
-              )
-            )
-          ])
+      (url as string[]).forEach((val: string, idx: number) => {
+        const { directory, useSubdirectories, regexp } = transformPathToRegexp(
+          val,
+          config
         )
-      } else {
-        mode = 'sync'
-        modulesKey = t.callExpression(
-          t.functionExpression(
+
+        let mode: string
+        let modulesKey: t.FunctionExpression | t.CallExpression
+        if (type === 'glob') {
+          mode = 'lazy'
+          modulesKey = t.functionExpression(
             null,
             [],
             t.blockStatement([
-              t.variableDeclaration('const', [
-                t.variableDeclarator(
-                  t.identifier('value'),
-                  t.callExpression(t.identifier('files'), [t.identifier('key')])
-                )
-              ]),
-              t.ifStatement(
-                t.binaryExpression(
-                  '===',
-                  t.callExpression(
-                    t.memberExpression(
-                      t.memberExpression(
-                        t.memberExpression(
-                          t.identifier('Object'),
-                          t.identifier('prototype')
-                        ),
-                        t.identifier('toString')
-                      ),
-                      t.identifier('call')
-                    ),
-                    [t.identifier('value')]
-                  ),
-                  t.stringLiteral('[object Module]')
-                ),
-                t.blockStatement([t.returnStatement(t.identifier('value'))])
-              ),
               t.returnStatement(
-                t.objectExpression([
-                  t.objectProperty(
-                    t.identifier('default'),
-                    t.identifier('value')
-                  )
-                ])
+                t.callExpression(
+                  t.memberExpression(
+                    t.callExpression(t.identifier('files'), [
+                      t.identifier('key')
+                    ]),
+                    t.identifier('then')
+                  ),
+                  [
+                    t.functionExpression(
+                      null,
+                      [t.identifier('value')],
+                      t.blockStatement([
+                        t.returnStatement(
+                          t.newExpression(t.identifier('Promise'), [
+                            t.functionExpression(
+                              null,
+                              [t.identifier('resolve')],
+                              t.blockStatement([
+                                t.ifStatement(
+                                  t.binaryExpression(
+                                    '===',
+                                    t.callExpression(
+                                      t.memberExpression(
+                                        t.memberExpression(
+                                          t.memberExpression(
+                                            t.identifier('Object'),
+                                            t.identifier('prototype')
+                                          ),
+                                          t.identifier('toString')
+                                        ),
+                                        t.identifier('call')
+                                      ),
+                                      [t.identifier('value')]
+                                    ),
+                                    t.stringLiteral('[object Module]')
+                                  ),
+                                  t.blockStatement([
+                                    t.returnStatement(
+                                      t.callExpression(t.identifier('resolve'), [
+                                        t.identifier('value')
+                                      ])
+                                    )
+                                  ])
+                                ),
+                                t.expressionStatement(
+                                  t.callExpression(t.identifier('resolve'), [
+                                    t.objectExpression([
+                                      t.objectProperty(
+                                        t.identifier('default'),
+                                        t.identifier('value')
+                                      )
+                                    ])
+                                  ])
+                                )
+                              ])
+                            )
+                          ])
+                        )
+                      ])
+                    )
+                  ]
+                )
               )
             ])
-          ),
-          []
+          )
+        } else {
+          mode = 'sync'
+          modulesKey = t.callExpression(
+            t.functionExpression(
+              null,
+              [],
+              t.blockStatement([
+                t.variableDeclaration('const', [
+                  t.variableDeclarator(
+                    t.identifier('value'),
+                    t.callExpression(t.identifier('files'), [t.identifier('key')])
+                  )
+                ]),
+                t.ifStatement(
+                  t.binaryExpression(
+                    '===',
+                    t.callExpression(
+                      t.memberExpression(
+                        t.memberExpression(
+                          t.memberExpression(
+                            t.identifier('Object'),
+                            t.identifier('prototype')
+                          ),
+                          t.identifier('toString')
+                        ),
+                        t.identifier('call')
+                      ),
+                      [t.identifier('value')]
+                    ),
+                    t.stringLiteral('[object Module]')
+                  ),
+                  t.blockStatement([t.returnStatement(t.identifier('value'))])
+                ),
+                t.returnStatement(
+                  t.objectExpression([
+                    t.objectProperty(
+                      t.identifier('default'),
+                      t.identifier('value')
+                    )
+                  ])
+                )
+              ])
+            ),
+            []
+          )
+        }
+        globBody.push(
+          t.variableDeclaration(
+            'var',
+            [
+              t.variableDeclarator(
+                t.identifier('_url_' + idx),
+                t.callExpression(
+                  t.functionExpression(
+                    null,
+                    [],
+                    t.blockStatement([
+                      t.variableDeclaration('const', [
+                        t.variableDeclarator(
+                          t.identifier('files'),
+                          t.callExpression(
+                            t.memberExpression(
+                              t.identifier('require'),
+                              t.identifier('context')
+                            ),
+                            [
+                              t.stringLiteral(directory),
+                              t.booleanLiteral(useSubdirectories),
+                              t.regExpLiteral(regexp),
+                              t.stringLiteral(mode)
+                            ]
+                          )
+                        )
+                      ]),
+                      t.variableDeclaration('const', [
+                        t.variableDeclarator(
+                          t.identifier('modules'),
+                          t.objectExpression([])
+                        )
+                      ]),
+                      t.expressionStatement(
+                        t.callExpression(
+                          t.memberExpression(
+                            t.callExpression(
+                              t.memberExpression(
+                                t.identifier('files'),
+                                t.identifier('keys')
+                              ),
+                              []
+                            ),
+                            t.identifier('forEach')
+                          ),
+                          [
+                            t.functionExpression(
+                              null,
+                              [t.identifier('key')],
+                              t.blockStatement([
+                                // t.variableDeclaration("let", [
+                                //   t.variableDeclarator(
+                                //     t.identifier("value"),
+                                //     t.callExpression(t.identifier("files"), [
+                                //       t.identifier("key"),
+                                //     ])
+                                //   ),
+                                // ]),
+                                t.expressionStatement(
+                                  t.assignmentExpression(
+                                    '=',
+                                    t.memberExpression(
+                                      t.identifier('modules'),
+                                      t.binaryExpression(
+                                        '+',
+                                        t.stringLiteral(directory),
+                                        t.callExpression(
+                                          t.memberExpression(
+                                            t.identifier('key'),
+                                            t.identifier('replace')
+                                          ),
+                                          [t.stringLiteral('./'), t.stringLiteral('')]
+                                        )
+                                      ),
+                                      true
+                                    ),
+                                    modulesKey
+                                  )
+                                )
+                              ])
+                            )
+                          ]
+                        )
+                      ),
+                      t.returnStatement(t.identifier('modules'))
+                    ])
+                  ),
+                  []
+                )
+              )
+            ]
+          )
         )
-      }
+      })
+
+      globBody.push(t.returnStatement(
+        t.callExpression(
+          t.memberExpression(
+            t.identifier('Object'),
+            t.identifier('assign')
+          ),
+          (url as string[]).map((val, idx) => {
+            return t.identifier('_url_' + idx)
+          })
+        )
+      ))
 
       path.replaceWith(
         t.callExpression(
           t.functionExpression(
             null,
             [],
-            t.blockStatement([
-              t.variableDeclaration('const', [
-                t.variableDeclarator(
-                  t.identifier('files'),
-                  t.callExpression(
-                    t.memberExpression(
-                      t.identifier('require'),
-                      t.identifier('context')
-                    ),
-                    [
-                      t.stringLiteral(directory),
-                      t.booleanLiteral(useSubdirectories),
-                      t.regExpLiteral(regexp),
-                      t.stringLiteral(mode)
-                    ]
-                  )
-                )
-              ]),
-              t.variableDeclaration('const', [
-                t.variableDeclarator(
-                  t.identifier('modules'),
-                  t.objectExpression([])
-                )
-              ]),
-              t.expressionStatement(
-                t.callExpression(
-                  t.memberExpression(
-                    t.callExpression(
-                      t.memberExpression(
-                        t.identifier('files'),
-                        t.identifier('keys')
-                      ),
-                      []
-                    ),
-                    t.identifier('forEach')
-                  ),
-                  [
-                    t.functionExpression(
-                      null,
-                      [t.identifier('key')],
-                      t.blockStatement([
-                        // t.variableDeclaration("let", [
-                        //   t.variableDeclarator(
-                        //     t.identifier("value"),
-                        //     t.callExpression(t.identifier("files"), [
-                        //       t.identifier("key"),
-                        //     ])
-                        //   ),
-                        // ]),
-                        t.expressionStatement(
-                          t.assignmentExpression(
-                            '=',
-                            t.memberExpression(
-                              t.identifier('modules'),
-                              t.binaryExpression(
-                                '+',
-                                t.stringLiteral(directory),
-                                t.callExpression(
-                                  t.memberExpression(
-                                    t.identifier('key'),
-                                    t.identifier('replace')
-                                  ),
-                                  [t.stringLiteral('./'), t.stringLiteral('')]
-                                )
-                              ),
-                              true
-                            ),
-                            modulesKey
-                          )
-                        )
-                      ])
-                    )
-                  ]
-                )
-              ),
-              t.returnStatement(t.identifier('modules'))
-            ])
+            t.blockStatement(globBody)
           ),
           []
         )
