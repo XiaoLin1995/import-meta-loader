@@ -4,6 +4,7 @@ export interface ImportMetaArray {
   url?: string | string[];
   type: string;
   value?: string;
+  import?: string;
 }
 
 export interface PathToRegexpOptions {

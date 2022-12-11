@@ -37,14 +37,24 @@ export default function transformCode (source: string, { env }: LoaderOptions, c
         const parentArgumentsTwo = parentNode.arguments[1]
 
         if (t.isObjectExpression(parentArgumentsTwo)) {
-          const property = (parentArgumentsTwo.properties as t.ObjectProperty[]).find((item) => {
+          const properties = parentArgumentsTwo.properties as t.ObjectProperty[]
+          const opts: ImportMetaArray = { path: parentPath, url, type }
+
+          const isEager = properties.some((item) => {
             return t.isIdentifier(item.key) && item.key.name === 'eager' && t.isBooleanLiteral(item.value) && item.value.value
           })
-          if (t.isObjectProperty(property)) {
-            importMetaData.push({ path: parentPath, url, type: 'globEager' })
-          } else {
-            importMetaData.push({ path: parentPath, url, type })
+          if (isEager) {
+            opts.type = 'globEager'
           }
+
+          const importProp = properties.find((item) => {
+            return t.isIdentifier(item.key) && item.key.name === 'import' && t.isStringLiteral(item.value) && item.value.value
+          })
+          if (importProp) {
+            opts.import = (importProp.value as t.StringLiteral).value
+          }
+
+          importMetaData.push(opts)
         } else {
           importMetaData.push({ path: parentPath, url, type })
         }
@@ -63,7 +73,7 @@ export default function transformCode (source: string, { env }: LoaderOptions, c
     }
   })
 
-  importMetaData.forEach(({ path, url, type, value }) => {
+  importMetaData.forEach(({ path, url, type, value, import: importLoad }) => {
     if (type === 'url') {
       path.replaceWith(
         t.callExpression(t.identifier('require'), [t.stringLiteral(url as string)])
@@ -269,19 +279,37 @@ export default function transformCode (source: string, { env }: LoaderOptions, c
                                   t.blockStatement([
                                     t.returnStatement(
                                       t.callExpression(t.identifier('resolve'), [
-                                        t.identifier('value')
+                                        (() => {
+                                          if (importLoad) {
+                                            return t.memberExpression(
+                                              t.identifier('value'),
+                                              t.stringLiteral(importLoad),
+                                              true
+                                            )
+                                          }
+                                          return t.identifier('value')
+                                        })()
                                       ])
                                     )
                                   ])
                                 ),
                                 t.expressionStatement(
                                   t.callExpression(t.identifier('resolve'), [
-                                    t.objectExpression([
-                                      t.objectProperty(
-                                        t.identifier('default'),
-                                        t.identifier('value')
-                                      )
-                                    ])
+                                    (() => {
+                                      if (importLoad) {
+                                        return t.memberExpression(
+                                          t.identifier('value'),
+                                          t.stringLiteral(importLoad),
+                                          true
+                                        )
+                                      }
+                                      return t.objectExpression([
+                                        t.objectProperty(
+                                          t.identifier('default'),
+                                          t.identifier('value')
+                                        )
+                                      ])
+                                    })()
                                   ])
                                 )
                               ])
@@ -326,15 +354,35 @@ export default function transformCode (source: string, { env }: LoaderOptions, c
                     ),
                     t.stringLiteral('[object Module]')
                   ),
-                  t.blockStatement([t.returnStatement(t.identifier('value'))])
+                  t.blockStatement([t.returnStatement(
+                    (() => {
+                      if (importLoad) {
+                        return t.memberExpression(
+                          t.identifier('value'),
+                          t.stringLiteral(importLoad),
+                          true
+                        )
+                      }
+                      return t.identifier('value')
+                    })()
+                  )])
                 ),
                 t.returnStatement(
-                  t.objectExpression([
-                    t.objectProperty(
-                      t.identifier('default'),
-                      t.identifier('value')
-                    )
-                  ])
+                  (() => {
+                    if (importLoad) {
+                      return t.memberExpression(
+                        t.identifier('value'),
+                        t.stringLiteral(importLoad),
+                        true
+                      )
+                    }
+                    return t.objectExpression([
+                      t.objectProperty(
+                        t.identifier('default'),
+                        t.identifier('value')
+                      )
+                    ])
+                  })()
                 )
               ])
             ),
