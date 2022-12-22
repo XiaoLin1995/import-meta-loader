@@ -1,9 +1,10 @@
 
 export interface ImportMetaArray {
   path: any;
-  url?: string;
+  url?: string | string[];
   type: string;
   value?: string;
+  import?: string;
 }
 
 export interface PathToRegexpOptions {
